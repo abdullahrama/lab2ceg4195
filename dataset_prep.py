@@ -88,7 +88,7 @@ def download_dataset():
 
 def load_image_mask_pair(img_path: Path, mask_path: Path):
     """
-    Opens an aerial image and its corresponding mask .tiff file.
+    Opens an aerial image and its corresponding mask PNG file.
 
     Returns:
         image : np.ndarray float32, shape (H, W, 3), values in [0, 1]
@@ -96,60 +96,62 @@ def load_image_mask_pair(img_path: Path, mask_path: Path):
     """
     image = np.array(Image.open(img_path).convert("RGB"), dtype=np.float32) / 255.0
 
-    mask_raw = np.array(Image.open(mask_path).convert("L"), dtype=np.float32) / 255.0
-    mask = generate_pixel_mask(mask_raw)
+    # ── Week 7 Pixel Mask Generation ──────────────────────────────────────────
+    mask = generate_week7_pixel_mask(mask_path, threshold=MASK_THRESHOLD)
 
     return image, mask
 
 
-# ── Step 3: Pixel mask generation ─────────────────────────────────────────────
+# ── Step 3: Week 7 Pixel Mask Generation ──────────────────────────────────────
 
-def generate_pixel_mask(mask_array: np.ndarray, threshold: float = MASK_THRESHOLD) -> np.ndarray:
+def generate_week7_pixel_mask(mask_path, threshold: float = MASK_THRESHOLD) -> np.ndarray:
     """
-    Converts a grayscale mask array into a binary pixel mask.
-
-    Concept adapted from A7_CEG4195/main.py get_pseudo_labels():
-        In A7, a confidence threshold is applied to classifier probabilities:
-            selected_mask = confidences >= threshold
-        Here we apply the same threshold logic at the pixel level:
-            pixel = 1 (building)  if intensity >= threshold
-            pixel = 0 (background) otherwise
+    Week 7 pixel mask generation step for semantic segmentation.
+    Loads a grayscale building mask and converts it to a binary mask
+    where building pixels = 1 and background pixels = 0.
 
     Args:
-        mask_array : float32 array with values in [0, 1]
-        threshold  : intensity cutoff (default 0.5)
+        mask_path : path to the grayscale mask PNG file
+        threshold : intensity cutoff — pixels >= threshold are labelled as building (default 0.5)
 
     Returns:
-        binary uint8 array {0, 1}, same spatial dimensions as input
+        binary uint8 array {0, 1}, same spatial dimensions as the input mask
     """
-    return (mask_array >= threshold).astype(np.uint8)
+    mask = Image.open(mask_path).convert("L")
+    mask = np.array(mask).astype(np.float32) / 255.0
+    binary_mask = (mask >= threshold).astype(np.uint8)
+    return binary_mask
 
 
 # ── Step 4: Patch extraction ───────────────────────────────────────────────────
 
-def extract_patches(image: np.ndarray, mask: np.ndarray):
+def extract_non_overlapping_patches(image: np.ndarray, mask: np.ndarray):
     """
-    Tiles a large aerial image and its mask into PATCH_SIZE x PATCH_SIZE crops.
-    Patches where the mask is entirely zero (no buildings) are discarded to
-    avoid flooding the dataset with background-only samples.
+    Tiles a large aerial image and its binary mask into non-overlapping
+    PATCH_SIZE x PATCH_SIZE crops. Background-only patches (no building
+    pixels) are discarded to avoid class imbalance during training.
 
     Returns:
-        list of (img_patch, mask_patch) tuples, each (PATCH_SIZE, PATCH_SIZE, 3)
-        and (PATCH_SIZE, PATCH_SIZE) respectively.
+        img_patches  : list of (PATCH_SIZE, PATCH_SIZE, 3) float32 arrays
+        mask_patches : list of (PATCH_SIZE, PATCH_SIZE)    uint8  arrays
     """
-    H, W = image.shape[:2]
-    patches = []
+    img_patches  = []
+    mask_patches = []
+    h, w = mask.shape[:2]
 
-    for y in range(0, H - PATCH_SIZE + 1, STRIDE):
-        for x in range(0, W - PATCH_SIZE + 1, STRIDE):
+    for y in range(0, h - PATCH_SIZE + 1, PATCH_SIZE):
+        for x in range(0, w - PATCH_SIZE + 1, PATCH_SIZE):
             img_patch  = image[y:y+PATCH_SIZE, x:x+PATCH_SIZE]
-            mask_patch = mask[y:y+PATCH_SIZE, x:x+PATCH_SIZE]
+            mask_patch = mask[y:y+PATCH_SIZE,  x:x+PATCH_SIZE]
 
-            # Keep patch only if it contains at least some building pixels
-            if mask_patch.sum() > 0:
-                patches.append((img_patch, mask_patch))
+            # Discard background-only patches
+            if np.sum(mask_patch) == 0:
+                continue
 
-    return patches
+            img_patches.append(img_patch)
+            mask_patches.append(mask_patch)
+
+    return img_patches, mask_patches
 
 
 # ── Step 5: Split and save ─────────────────────────────────────────────────────
@@ -256,11 +258,12 @@ def main():
     pairs = get_raw_pairs(extract_dir)
     print(f"Found {len(pairs)} image/mask pairs.")
 
-    print("\nGenerating pixel masks and extracting patches ...")
+    print("\nWeek 7 Pixel Mask Generation + patch extraction ...")
     all_patches = []
     for i, (img_path, mask_path) in enumerate(pairs):
         image, mask = load_image_mask_pair(img_path, mask_path)
-        patches = extract_patches(image, mask)
+        imgs, masks = extract_non_overlapping_patches(image, mask)
+        patches = list(zip(imgs, masks))
         all_patches.extend(patches)
         print(f"  [{i+1:>3}/{len(pairs)}] {img_path.name} → {len(patches)} patches")
 

@@ -73,12 +73,12 @@ class BuildingDataset(Dataset):
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.RandomRotate90(p=0.5),
-                A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+                A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=1.0),
                 ToTensorV2(),
             ])
         else:
             self.transform = A.Compose([
-                A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+                A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=1.0),
                 ToTensorV2(),
             ])
 
@@ -205,14 +205,14 @@ def save_sample_predictions(model, loader, device, n_samples=4):
         logits = model(images_batch)
         preds  = (torch.sigmoid(logits) > THRESHOLD).squeeze(1).cpu().numpy()
 
-    # Un-normalise images for display
-    mean = np.array(IMAGENET_MEAN).reshape(3, 1, 1)
-    std  = np.array(IMAGENET_STD).reshape(3, 1, 1)
-    imgs_display = (images_batch.cpu().numpy() * std + mean).clip(0, 1)
+    # Load raw (un-normalized) images from .npy for display — avoids the
+    # albumentations max_pixel_value un-normalization complexity entirely.
+    raw_images   = np.load(DATA_DIR / "test" / "images.npy", mmap_mode="r")
+    imgs_display = np.array(raw_images[:n_samples])  # (n, 256, 256, 3) float32 [0,1]
 
     fig, axes = plt.subplots(n_samples, 3, figsize=(9, 3 * n_samples))
     for i in range(n_samples):
-        axes[i, 0].imshow(imgs_display[i].transpose(1, 2, 0))
+        axes[i, 0].imshow(imgs_display[i])
         axes[i, 0].set_title("Aerial image")
         axes[i, 0].axis("off")
 
