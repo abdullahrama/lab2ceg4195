@@ -2,13 +2,9 @@
 dataset_prep.py — CEG4195 Lab 2
 --------------------------------
 Downloads the Massachusetts Buildings Dataset via the Kaggle API,
-generates binary pixel masks for each aerial image, tiles them into
+generates binary pixel-level segmentation masks for each aerial image
+following the Week 7 semantic segmentation pipeline, tiles them into
 256x256 patches, and splits into train/val/test sets.
-
-Pixel mask generation concept adapted from A7_CEG4195/main.py
-get_pseudo_labels(): instead of applying a confidence threshold to
-classifier probabilities, we apply an intensity threshold to raw
-mask pixel values to produce a binary {0,1} segmentation mask per pixel.
 
 Run:
     python dataset_prep.py
@@ -96,7 +92,7 @@ def load_image_mask_pair(img_path: Path, mask_path: Path):
     """
     image = np.array(Image.open(img_path).convert("RGB"), dtype=np.float32) / 255.0
 
-    # ── Week 7 Pixel Mask Generation ──────────────────────────────────────────
+    # Week 7 semantic segmentation: generate binary pixel mask from grayscale label
     mask = generate_week7_pixel_mask(mask_path, threshold=MASK_THRESHOLD)
 
     return image, mask
@@ -106,13 +102,15 @@ def load_image_mask_pair(img_path: Path, mask_path: Path):
 
 def generate_week7_pixel_mask(mask_path, threshold: float = MASK_THRESHOLD) -> np.ndarray:
     """
-    Week 7 pixel mask generation step for semantic segmentation.
-    Loads a grayscale building mask and converts it to a binary mask
-    where building pixels = 1 and background pixels = 0.
+    Week 7 semantic segmentation pixel mask generation.
+    Converts a grayscale building mask into a binary pixel-level segmentation
+    mask by thresholding grayscale intensity into binary pixel labels:
+        pixel = 1 (building)   if intensity >= threshold
+        pixel = 0 (background) otherwise
 
     Args:
         mask_path : path to the grayscale mask PNG file
-        threshold : intensity cutoff — pixels >= threshold are labelled as building (default 0.5)
+        threshold : intensity cutoff (default 0.5)
 
     Returns:
         binary uint8 array {0, 1}, same spatial dimensions as the input mask
