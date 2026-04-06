@@ -1,0 +1,12 @@
+flask==3.0.2
+python-dotenv==1.0.1
+torch==2.3.0
+torchvision==0.18.0
+segmentation-models-pytorch==0.3.3
+albumentations==1.4.3
+Pillow==10.3.0
+kaggle==1.6.12
+requests==2.31.0
+numpy==1.26.4
+pytest==8.2.0
+matplotlib==3.9.0

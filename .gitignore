@@ -1,0 +1,17 @@
+# Secrets — never commit
+.env
+
+# Dataset and model weights — too large for git
+data/
+models/
+*.pth
+*.npy
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
