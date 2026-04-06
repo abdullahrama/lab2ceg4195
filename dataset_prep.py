@@ -2,9 +2,9 @@
 dataset_prep.py — CEG4195 Lab 2
 --------------------------------
 Downloads the Massachusetts Buildings Dataset via the Kaggle API,
-generates binary pixel-level segmentation masks for each aerial image
-following the Week 7 semantic segmentation pipeline, tiles them into
-256x256 patches, and splits into train/val/test sets.
+generates binary pixel masks for each aerial image using a Week 7
+semantic segmentation preprocessing step, tiles them into 256x256
+patches, and splits them into train/val/test sets.
 
 Run:
     python dataset_prep.py
@@ -27,8 +27,7 @@ RAW_DIR        = Path("data/raw")
 PROCESSED_DIR  = Path("data/processed")
 PATCH_SIZE     = 256
 STRIDE         = 256          # non-overlapping patches
-MASK_THRESHOLD = 0.5          # pixel intensity threshold for building vs background
-                              # mirrors A7's confidence threshold in get_pseudo_labels()
+MASK_THRESHOLD = 0.5          # intensity threshold for binary pixel mask generation
 SEED           = 42
 TRAIN_FRAC     = 0.70
 VAL_FRAC       = 0.15
